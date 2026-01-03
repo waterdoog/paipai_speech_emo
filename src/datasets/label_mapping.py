@@ -26,7 +26,7 @@ class LabelMapper:
         path = Path(path)
         if not path.exists():
             raise FileNotFoundError(f"標籤映射文件不存在: {path}")
-        with path.open("r", encoding="utf-8") as handle:
+        with path.open("r", encoding="utf-8-sig") as handle:
             return json.load(handle)
 
     @staticmethod
