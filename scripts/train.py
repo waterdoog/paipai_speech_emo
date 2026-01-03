@@ -196,8 +196,8 @@ def build_optimizer(model, cfg, domain_classifier=None):
     """
     train_cfg = cfg["training"]
     encoder_params, head_params = model.get_param_groups()
-    lr_backbone = train_cfg.get("lr_backbone", train_cfg.get("lr", 1e-4))
-    lr_head = train_cfg.get("lr_head", lr_backbone)
+    lr_backbone = float(train_cfg.get("lr_backbone", float(train_cfg.get("lr", 1e-4))))
+    lr_head = float(train_cfg.get("lr_head", lr_backbone))
     param_groups = [
         {"params": encoder_params, "lr": lr_backbone},
         {"params": head_params, "lr": lr_head},
@@ -206,7 +206,7 @@ def build_optimizer(model, cfg, domain_classifier=None):
         param_groups.append(
             {
                 "params": domain_classifier.parameters(),
-                "lr": train_cfg.get("lr_domain", lr_head),
+                "lr": float(train_cfg.get("lr_domain", lr_head)),
             }
         )
     optimizer = torch.optim.AdamW(
