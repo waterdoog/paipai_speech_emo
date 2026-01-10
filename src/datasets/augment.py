@@ -1,7 +1,7 @@
 """音頻數據增強模塊
 
 提供多種音頻數據增強技術，用於訓練階段提高模型的泛化能力
-包括加噪、時間偏移和速度擾動等操作
+包括加噪、時間偏移、速度擾動和SpecAugment等操作
 """
 import random
 
@@ -88,3 +88,84 @@ def apply_augmentations(waveform, sample_rate, config):
     waveform = apply_time_shift(waveform, config.get("time_shift", 0.0))
     waveform = apply_noise(waveform, config.get("noise_std", 0.0))
     return waveform
+
+
+def apply_time_mask(features, num_masks, max_mask_ratio):
+    """對Mel頻譜應用時間遮罩（SpecAugment）
+
+    Args:
+        features: Mel頻譜特徵，形狀為 (seq_length, n_mels)
+        num_masks: 時間遮罩的數量
+        max_mask_ratio: 每個遮罩的最大長度比例（相對於序列長度）
+
+    Returns:
+        應用時間遮罩後的特徵
+    """
+    if num_masks <= 0:
+        return features
+    
+    seq_length = features.shape[0]
+    for _ in range(num_masks):
+        mask_length = int(random.uniform(0, max_mask_ratio) * seq_length)
+        if mask_length == 0:
+            continue
+        mask_start = random.randint(0, seq_length - mask_length)
+        features[mask_start:mask_start + mask_length, :] = 0
+    
+    return features
+
+
+def apply_freq_mask(features, num_masks, max_freq_ratio):
+    """對Mel頻譜應用頻率遮罩（SpecAugment）
+
+    Args:
+        features: Mel頻譜特徵，形狀為 (seq_length, n_mels)
+        num_masks: 頻率遮罩的數量
+        max_freq_ratio: 每個遮罩的最大寬度比例（相對於頻率維度）
+
+    Returns:
+        應用頻率遮罩後的特徵
+    """
+    if num_masks <= 0:
+        return features
+    
+    n_mels = features.shape[1]
+    for _ in range(num_masks):
+        mask_width = int(random.uniform(0, max_freq_ratio) * n_mels)
+        if mask_width == 0:
+            continue
+        mask_start = random.randint(0, n_mels - mask_width)
+        features[:, mask_start:mask_start + mask_width] = 0
+    
+    return features
+
+
+def apply_specaugment(features, config):
+    """應用SpecAugment（時間和頻率遮罩）
+
+    Args:
+        features: Mel頻譜特徵，形狀為 (seq_length, n_mels)
+        config: SpecAugment配置字典，包含以下鍵：
+            - time_masks: 時間遮罩數量
+            - time_mask_ratio: 時間遮罩最大長度比例
+            - freq_masks: 頻率遮罩數量
+            - freq_mask_ratio: 頻率遮罩最大寬度比例
+
+    Returns:
+        應用SpecAugment後的特徵
+    """
+    if not config or not config.get("enabled", False):
+        return features
+    
+    features = apply_time_mask(
+        features,
+        config.get("time_masks", 2),
+        config.get("time_mask_ratio", 0.1)
+    )
+    features = apply_freq_mask(
+        features,
+        config.get("freq_masks", 2),
+        config.get("freq_mask_ratio", 0.1)
+    )
+    
+    return features

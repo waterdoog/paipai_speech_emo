@@ -223,6 +223,9 @@ class EmotionDataset(Dataset):
         if self.augment:
             waveform = apply_augmentations(waveform, self.sample_rate, self.augment)
 
+        # 記錄原始音頻長度（用於計算真實Mel幀長）
+        original_samples = waveform.shape[-1]
+        
         # 裁剪或填充音訊到指定長度
         waveform = self._trim_or_pad(waveform)
 
@@ -230,11 +233,23 @@ class EmotionDataset(Dataset):
         features = self.to_db(self.mel(waveform))
         # 調整特徵維度：(mel_bins, time) → (time, mel_bins)
         features = features.squeeze(0).transpose(0, 1)
-        length = features.shape[0]
+        
+        # 應用per-utterance CMVN（均值和方差歸一化）
+        features = self._apply_cmvn(features, original_frames if 'original_frames' in locals() else features.shape[0])
+        
+        # 計算真實Mel幀長（排除padding）
+        hop_length = self.hop_length if self.hop_length else self.n_fft // 4 if self.n_fft else 512
+        if self.max_samples:
+            max_frames = self.max_samples // hop_length + 1
+            original_frames = min(original_samples // hop_length + 1, max_frames)
+        else:
+            original_frames = original_samples // hop_length + 1
+        
+        length = original_frames
 
         return {
             "features": features,      # Mel頻譜特徵
-            "length": length,          # 特徵序列長度
+            "length": length,          # 真實特徵序列長度（排除padding）
             "label": item["label"],   # 標籤ID
             "domain": item["domain"], # 領域ID
             "path": item["path"],     # 音訊文件路徑
@@ -284,6 +299,38 @@ class EmotionDataset(Dataset):
             list: 標籤ID列表
         """
         return [item["label"] for item in self.items]
+
+    def _apply_cmvn(self, features, valid_length):
+        """
+        應用per-utterance CMVN（均值和方差歸一化）
+        
+        Args:
+            features: Mel頻譜特徵，形狀為 (seq_length, n_mels)
+            valid_length: 有效序列長度（排除padding）
+            
+        Returns:
+            歸一化後的特徵
+        """
+        if valid_length <= 0:
+            return features
+        
+        # 只對有效幀進行歸一化
+        valid_features = features[:valid_length, :]
+        
+        # 計算均值和標準差
+        mean = valid_features.mean(dim=0, keepdim=True)
+        std = valid_features.std(dim=0, keepdim=True)
+        
+        # 避免除以零
+        std = std.clamp(min=1e-5)
+        
+        # 歸一化
+        valid_features = (valid_features - mean) / std
+        
+        # 更新特徵
+        features[:valid_length, :] = valid_features
+        
+        return features
 
 
 # 數據批處理函數
