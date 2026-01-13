@@ -234,9 +234,6 @@ class EmotionDataset(Dataset):
         # 調整特徵維度：(mel_bins, time) → (time, mel_bins)
         features = features.squeeze(0).transpose(0, 1)
         
-        # 應用per-utterance CMVN（均值和方差歸一化）
-        features = self._apply_cmvn(features, original_frames if 'original_frames' in locals() else features.shape[0])
-        
         # 計算真實Mel幀長（排除padding）
         hop_length = self.hop_length if self.hop_length else self.n_fft // 4 if self.n_fft else 512
         if self.max_samples:
@@ -244,6 +241,12 @@ class EmotionDataset(Dataset):
             original_frames = min(original_samples // hop_length + 1, max_frames)
         else:
             original_frames = original_samples // hop_length + 1
+        
+        # 應用per-utterance CMVN（均值和方差歸一化）
+        features = self._apply_cmvn(features, original_frames)
+        
+        # 截斷特徵以匹配真實長度，防止 collate_batch 發生維度不匹配錯誤
+        features = features[:original_frames, :]
         
         length = original_frames
 
