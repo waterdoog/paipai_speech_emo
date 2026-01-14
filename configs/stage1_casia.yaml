@@ -1,4 +1,4 @@
-﻿stage: stage1
+﻿﻿stage: stage1
 seed: 42
 device: cuda
 output_dir: outputs
