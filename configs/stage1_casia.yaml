@@ -1,4 +1,4 @@
-﻿﻿stage: stage1
+﻿﻿﻿stage: stage1
 seed: 42
 device: cuda
 output_dir: outputs
@@ -33,7 +33,7 @@ model:
 training:
   epochs: 40
   batch_size: 16
-  num_workers: 2
+  num_workers: 0
   lr_backbone: 1e-4
   lr_head: 5e-4
   weight_decay: 0.01

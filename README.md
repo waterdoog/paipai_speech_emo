@@ -83,6 +83,18 @@ python scripts/predict.py \
 
 ---
 
+## 训练曲线可视化
+
+训练结束后会在 `outputs/metrics/` 生成 `train_history.json` 和 `val_history.json`。运行：
+
+```bash
+python scripts/plot_metrics.py
+```
+
+会在 `outputs/plots/` 生成 `train_metrics.png` / `val_metrics.png` / `test_metrics.png`。
+
+---
+
 ## 前端使用
 
 1. 打开 `demo/index.html`

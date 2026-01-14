@@ -1,6 +1,8 @@
 import csv
 from pathlib import Path
 
+import numpy as np
+import soundfile as sf
 import torch
 import torchaudio
 from torch.utils.data import Dataset
@@ -210,7 +212,8 @@ class EmotionDataset(Dataset):
         item = self.items[idx]
         
         # 加載音訊文件
-        waveform, sr = torchaudio.load(item["path"])
+        waveform, sr = sf.read(item["path"], dtype="float32", always_2d=True)
+        waveform = torch.from_numpy(waveform).transpose(0, 1)
         # 將多通道轉換為單通道（取平均值）
         waveform = waveform.mean(dim=0, keepdim=True)
         # 轉換取樣率

@@ -6,6 +6,7 @@
 """
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -239,6 +240,14 @@ def build_scheduler(optimizer, cfg):
     return None
 
 
+def save_history(path, history):
+    """Save metric history to a JSON file."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as handle:
+        json.dump(history, handle, indent=2)
+
+
 def main(default_config=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default=default_config, required=default_config is None)
@@ -300,6 +309,8 @@ def main(default_config=None):
 
     metric_key = cfg["training"].get("metric_key", "macro_f1")
     best_metric = -1.0
+    train_history = []
+    val_history = []
 
     epochs = cfg["training"]["epochs"]
     for epoch in range(1, epochs + 1):
@@ -320,6 +331,14 @@ def main(default_config=None):
             domain_criterion=domain_criterion,
         )
         logger.info("Train metrics: %s", train_metrics)
+        train_history.append(
+            {
+                "epoch": epoch,
+                "loss": train_metrics.get("loss"),
+                "accuracy": train_metrics.get("accuracy"),
+            }
+        )
+        save_history(output_dir / "metrics" / "train_history.json", train_history)
 
         if val_loader is not None:
             val_metrics = evaluate(
@@ -333,6 +352,14 @@ def main(default_config=None):
             )
             logger.info("Val metrics: %s", val_metrics)
             save_metrics(output_dir / "metrics" / "val_metrics.json", val_metrics)
+            val_history.append(
+                {
+                    "epoch": epoch,
+                    "loss": val_metrics.get("loss"),
+                    "accuracy": val_metrics.get("accuracy"),
+                }
+            )
+            save_history(output_dir / "metrics" / "val_history.json", val_history)
 
             if val_metrics.get(metric_key, 0.0) > best_metric:
                 best_metric = val_metrics.get(metric_key, 0.0)
@@ -377,4 +404,3 @@ def main(default_config=None):
 
 if __name__ == "__main__":
     main()
-
